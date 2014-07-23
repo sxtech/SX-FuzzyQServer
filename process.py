@@ -4,12 +4,12 @@
 #    请不要随意修改文件中的代码
 # -------------------------------------------------
 
-
 import sys
 import time
 import threading
 import socket
 import gl
+import logging
 
 import php_python
 
@@ -18,6 +18,8 @@ TIMEOUT = 30           #socket处理时间30秒
 
 pc_dict = {}        #预编译字典，key:调用模块、函数、参数字符串，值是编译对象
 global_env = {}     #global环境变量
+
+logger = logging.getLogger('root')  #创建日志文件对象
 
 ##reload(sys) # Python2.5 初始化后会删除 sys.setdefaultencoding 这个方法，我们需要重新载入   
 ##sys.setdefaultencoding('gbk')
@@ -42,14 +44,11 @@ def z_encode(p):
     """
     encode param from python data
     """
-    #print 'p',p
     if p == None:                               #None->PHP中的NULL
-        #print 'None',p
         return "N;"
     elif isinstance(p, int):                    #int->PHP整形
         return "i:%d;" % p
     elif isinstance(p, str):                    #String->PHP字符串
-        #print 'str',p
         p_bytes = p.encode(php_python.CHARSET);
         ret = 's:%d:"' % len(p_bytes)
         ret = ret.encode(php_python.CHARSET)
@@ -84,7 +83,6 @@ def z_decode(p):
     decode php param from string to python
     p: bytes
     """
-    #print 'p',p
     if p[0]==chr(0x4e):                      #NULL 0x4e-'N'
         return None,p[2:]
     elif p[0]==chr(0x62):                    #bool 0x62-'b'
@@ -167,6 +165,7 @@ class ProcessThread(threading.Thread):
             if len(firstbuf) < REQUEST_MIN_LEN:               #不够消息最小长度
                 #print ("非法包，小于最小长度: %s" % firstbuf)
                 #print 'error message,less than minimum length:',firstbuf
+                logger.error('error message,less than minimum length:%s'%str(firstbuf))
                 gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_red,'error message,less than minimum length:'+firstbuf))
                 self._socket.close()
                 return
@@ -176,10 +175,12 @@ class ProcessThread(threading.Thread):
             print firstbuf
             totalLen = int(firstbuf[0:firstComma])            #消息包总长度
             #print("消息长度:%d" % totalLen)
-            print 'message length:',totalLen
+            #print 'message length:',totalLen
+            logger.info('message length:%s'%str(totalLen))
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_blue,'message length:'+str(totalLen)))
             reqMsg = firstbuf[firstComma+1:]
-            print 'reqMsg:',reqMsg
+            #print 'reqMsg:',reqMsg
+            logger.info('reqMsg:%s'%reqMsg)
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_blue,'reqMsg:'+reqMsg))
             while (len(reqMsg) < totalLen):    
                 reqMsg = reqMsg + self._socket.recv(16 * 1024)
@@ -190,6 +191,7 @@ class ProcessThread(threading.Thread):
         except Exception,e:  
             #print ('接收消息异常', e)
             #print 'getMessage error',str(e)
+            logger.error(str(e))
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_red,'getMessage error'+str(e)))
             self._socket.close()
             return
@@ -208,8 +210,9 @@ class ProcessThread(threading.Thread):
                 callMod = __import__ (modul)    #根据module名，反射出module
                 pc_dict[modul] = callMod        #预编译字典缓存此模块
             except Exception,e:
-                print 'module not exist:',modul
+                #print 'module not exist:',modul
                 #print ('模块不存在:%s' % modul)
+                logger.error(str(e))
                 gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_red,'module not exist:'+modul))
                 self._socket.sendall(("F" + "module '%s' is not exist!" % modul).encode(php_python.CHARSET)) #异常
                 self._socket.close()
@@ -222,6 +225,7 @@ class ProcessThread(threading.Thread):
         except Exception,e:
             #print 'function not exist:',func
             #print ('函数不存在:%s' % func)
+            logger.error(str(e))
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_red,'function not exist:'+func))
             self._socket.sendall(("F" + "function '%s()' is not exist!" % func).encode(php_python.CHARSET)) #异常
             self._socket.close()
@@ -249,6 +253,7 @@ class ProcessThread(threading.Thread):
         except Exception,e:  
             #print ('调用Python业务函数异常', e )
             #print 'call python error:',str(e)
+            logger.error(str(e))
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_red,'call python error:'+str(e)))
             raise
             errType, errMsg, traceback = sys.exc_info()
@@ -269,11 +274,13 @@ class ProcessThread(threading.Thread):
             rspStr = "S" + rspStr
             #调试
             #print ("返回包：%s" % rspStr)
+            logger.info('返回包：%s'%rspStr)
             gl.TRIGGER.emit("<font %s>返回包：%s</font>"%(gl.style_blue,rspStr))
             self._socket.sendall(rspStr.encode(php_python.CHARSET))
         except Exception,e:
             #print 'send message error:',str(e)
             #print ('发送消息异常', e)
+            logger.error('send message error:%s'%str(e))
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_red,'send message error:'+str(e)))
             errType, errMsg, traceback = sys.exc_info()
             self._socket.sendall(("F%s" % errMsg).encode(php_python.CHARSET)) #异常信息返回

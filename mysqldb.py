@@ -2,7 +2,7 @@
 import MySQLdb
 import gl
 
-class Mysql:
+class FMysql:
     def __init__(self):
         self.conn = gl.mysqlpool.connection()
         self.cur  = self.conn.cursor(cursorclass = MySQLdb.cursors.DictCursor)

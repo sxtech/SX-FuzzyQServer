@@ -9,7 +9,7 @@ CREATE TABLE `platecode` (
   `p7` char(2) NOT NULL DEFAULT '__',
   `p8` char(2) NOT NULL DEFAULT '__',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `index_p1` (`p1`(6)) USING BTREE,
+  UNIQUE KEY `index_p1` (`p1`) USING BTREE,
   KEY `ip2` (`p2`) USING BTREE,
   KEY `ip3` (`p3`) USING BTREE,
   KEY `ip4` (`p4`) USING BTREE,

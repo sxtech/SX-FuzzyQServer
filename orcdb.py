@@ -2,7 +2,7 @@
 import cx_Oracle
 import gl
 
-class Orc:
+class FOrc:
     def __init__(self):
         self.conn  = gl.orcpool.connection()
         self.cur   = self.conn.cursor()

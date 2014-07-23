@@ -12,16 +12,18 @@ def initLogging(logFilename):
         pass
     else:
         os.makedirs(path[0])
-    logging.basicConfig(
-                    level    = logging.INFO,
-                    format   = '%(asctime)s %(filename)s[line:%(lineno)d] [%(levelname)s] %(message)s',
-                    datefmt  = '%Y-%m-%d %H:%M:%S',
-                    filename = logFilename,
-                    filemode = 'a');
-
+    logger = logging.getLogger('root')
+    
+    Rthandler = logging.handlers.RotatingFileHandler(logFilename, maxBytes=10*1024*1024,backupCount=5)
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s %(filename)s[line:%(lineno)d] [%(levelname)s] %(message)s',
+                                  datefmt='%Y-%m-%d %H:%M:%S')
+    Rthandler.setFormatter(formatter)
+    logger.addHandler(Rthandler)
+    
 #版本号
 def version():
-    return 'SX-FuzzyQServer V0.1.0'
+    return 'SX-FuzzyQServer V0.2.0'
 
  
 class MyThread(QtCore.QThread):
@@ -38,8 +40,6 @@ class MyThread(QtCore.QThread):
 
 class dcmain:
     def __init__(self,trigger):
-        initLogging(r'log\fuzzyqserver.log')
-
         gl.TRIGGER.emit("<font size=6 font-weight=bold face=arial color=tomato>%s</font>"%('Welcome to use '+version()))
         self.pp = PhpPython()
 
@@ -67,7 +67,7 @@ class MainWindow(QtGui.QMainWindow):
         exit = QtGui.QAction(QtGui.QIcon('icons/exit.png'), 'Exit', self)
         exit.setShortcut('Ctrl+Q')
         exit.setStatusTip('Exit application')
-        self.connect(exit, QtCore.SIGNAL('triggered()'), QtCore.SLOT('close()'))
+        self.connect(exit, QtCore.SIGNAL('triggered()'), self.closeGUI)
 
         self.statusBar()
 
@@ -81,31 +81,78 @@ class MainWindow(QtGui.QMainWindow):
         self.setWindowIcon(QtGui.QIcon('icons/logo.png'))
 
         self.count = 0
+
+        self.createActions()
+        self.createTray()
         
         self.start_threads()
         
     def closeEvent(self, event):
+        event.ignore()
+        self.hide()
+
+    #创建托盘菜单动作
+    def createActions(self):    
+        self.restoreAction = QtGui.QAction(u"显示|隐藏", self)
+        self.connect(self.restoreAction, QtCore.SIGNAL('triggered()'), self.show_hide)
+        
+        self.quitAction = QtGui.QAction(QtGui.QIcon( 'icons/exit.png' ), u'退出', self)
+        self.connect(self.quitAction, QtCore.SIGNAL('triggered()'), self.logout)
+
+    #创建系统托盘
+    def createTray(self):
+        # 创建托盘
+        self.icon = QtGui.QIcon("icons\logo.png")
+         
+        self.trayIcon = QtGui.QSystemTrayIcon(self)
+        self.trayIcon.setIcon(self.icon)
+        self.trayIcon.show()
+
+        # 托盘菜单
+        self.menu = QtGui.QMenu(self)
+        self.menu.addAction(self.restoreAction)
+        self.menu.addSeparator()
+        self.menu.addAction(self.quitAction)
+        self.trayIcon.setContextMenu(self.menu)
+
+    def show_hide(self):
+        if self.isHidden():
+            self.showNormal()
+        else:
+            self.hide()
+            
+    #托盘菜单退出
+    def logout(self):
+        gl.QTFLAG = False
+        self.socketClient()
+        while gl.DCFLAG == True:
+            time.sleep(1)
+        sys.exit()
+
+    #退出GUI
+    def closeGUI(self):
         reply = QtGui.QMessageBox.question(self, 'Message',
-            "Are you sure to quit?", QtGui.QMessageBox.Yes |
+            u"确定要退出吗?", QtGui.QMessageBox.Yes |
             QtGui.QMessageBox.No, QtGui.QMessageBox.No)
         if reply == QtGui.QMessageBox.Yes:
             gl.QTFLAG = False
             self.socketClient()
-            while gl.DCFLAG == True: 
+            while gl.DCFLAG == True:
                 time.sleep(1)
-            event.accept()
+            sys.exit()
         else:
-            event.ignore()
+            pass
             
     def socketClient(self):
-        import socket 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-        sock.connect(('localhost',gl.LISTEN_PORT)) 
-        import time 
-        #time.sleep(1) 
-        sock.send('1')
-        #sock.recv(1024) 
-        sock.close() 
+        try:
+            import socket 
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+            sock.connect(('localhost',gl.LISTEN_PORT)) 
+            import time 
+            sock.send('1')
+            sock.close()
+        except Exception,e:
+            pass
             
     def start_threads(self):
         self.threads = []              # this will keep a reference to threads
@@ -122,6 +169,9 @@ class MainWindow(QtGui.QMainWindow):
         self.text_area.append(unicode(message, 'gbk'))
         
 if __name__ == '__main__':
+    initLogging(r'log\fuzzyqserver.log')
+    logger = logging.getLogger('root')
+    
     app = QtGui.QApplication(sys.argv)
  
     mainwindow = MainWindow()

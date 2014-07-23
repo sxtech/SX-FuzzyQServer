@@ -5,7 +5,7 @@ import fuzzyqser
 import gl
 import MySQLdb
 import cx_Oracle
-from iniconf import fuzzyQServerIni
+from iniconf import fuzzyQSerIni
 from helpfunc import HelpFunc
 from DBUtils.PooledDB import PooledDB
 #from DBUtils.PersistentDB import PersistentDB
@@ -46,79 +46,116 @@ def orcPool(h,u,ps,pt,s,minc=5,maxc=20,maxs=10,maxcon=100,maxu=1000):
 #    请不要随意修改下面的代码
 # -------------------------------------------------
 class PhpPython:
-    def main(self):
-        gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,'-------------------------------------------'))
-        gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,"- FuzzyQ Service"))
-        gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,"- Time: %s" % time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))))
-        gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,'-------------------------------------------'))
-        
-        self.fqsIni = fuzzyQServerIni()
-        sysset = self.fqsIni.getSysConf()
-
-        gl.LISTEN_PORT = sysset['listen_port']
-        gl.CHARSET     = sysset['charset']
-            
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  #TCP/IP
-        sock.bind(('', gl.LISTEN_PORT))
-        sock.listen(5)
-
-        gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,"Listen port: %d" % gl.LISTEN_PORT))
-        gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,"charset: %s" % gl.CHARSET))
-        gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,"Server startup..."))
+    def __init__(self):  
+        self.fqsIni   = fuzzyQSerIni()
+        self.mysqlini = self.fqsIni.getMysqlConf()
+        self.orcini   = self.fqsIni.getOrcConf()
+        self.sysset   = self.fqsIni.getSysConf()
 
         self.hf = HelpFunc()
+        
+        gl.MYSQLLOGIN  = False
+        gl.ORCLOGIN    = False
+        gl.LISTEN_PORT = self.sysset['listen_port']
+        gl.CHARSET     = self.sysset['charset']
+        
+        self.orcCount = 1
+        self.mysqlCount = 1
 
         self.loginMysql()
         self.loginOracle()
         
-        import process
-        
-        while 1:
-            connection,address = sock.accept()  #收到一个请求
+    def main(self):
+        try:
+            while 1:
+                if not gl.QTFLAG:    #退出检测
+                    gl.DCFLAG = False
+                    return
+                
+                if gl.MYSQLLOGIN and gl.ORCLOGIN:  
+                    break
+                else:
+                    if gl.MYSQLLOGIN:    #mysql登录检测
+                        pass
+                    elif self.orcCount == 0 or self.orcCount >= 15:
+                        self.loginOracle()
+                    else:
+                        self.orcCount += 1
 
-            #print ("client's IP:%s, PORT:%d" % address)
-            if gl.QTFLAG == False:
-                gl.DCFLAG = False
-                break
+                    if gl.ORCLOGIN:      #oracle登录检测
+                        pass
+                    elif self.mysqlCount == 0 or self.mysqlCount >= 15:
+                        self.loginMysql()
+                    else:
+                        self.mysqlCount += 1
+                        
+                    time.sleep(1)
+                    
+            gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,'-------------------------------------------'))
+            gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,"- FuzzyQ Service"))
+            gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,"- Time: %s" % time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))))
+            gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,'-------------------------------------------'))
+                
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  #TCP/IP
+            sock.bind(('', gl.LISTEN_PORT))
+            sock.listen(5)
 
-            # 处理线程
-            try:
-                process.ProcessThread(connection).start()
-            except:
-                pass
+            gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,"Listen port: %d" % gl.LISTEN_PORT))
+            gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,"charset: %s" % gl.CHARSET))
+            gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,"Server startup..."))
+            
+            import process
+            
+            while 1:
+                connection,address = sock.accept()  #收到一个请求
 
-        del self.hf
-        del self.fqsIni
+                #print ("client's IP:%s, PORT:%d" % address)
+                if gl.QTFLAG == False:
+                    gl.DCFLAG = False
+                    break
+
+                # 处理线程
+                try:
+                    process.ProcessThread(connection).start()
+                except:
+                    pass
+        except Exception,e:
+            logger.error(str(e))
+            gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_red,self.hf.getTime()+str(e)))
+        finally:
+            del self.hf
+            del self.fqsIni
 
     #登录mysql
     def loginMysql(self):
-        mysqlini = self.fqsIni.getMysqlConf()
+        #mysqlini = self.fqsIni.getMysqlConf()
         try:
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,self.hf.getTime()+'Start to login mysql...'))
-            mysqlPool(mysqlini['host'],mysqlini['user'],mysqlini['passwd'],3306,mysqlini['mincached'],mysqlini['maxcached'],mysqlini['maxshared'],mysqlini['maxconnections'],mysqlini['maxusage'])
+            mysqlPool(self.mysqlini['host'],self.mysqlini['user'],self.mysqlini['passwd'],3306,self.mysqlini['mincached'],self.mysqlini['maxcached'],
+                      self.mysqlini['maxshared'],self.mysqlini['maxconnections'],self.mysqlini['maxusage'])
             gl.MYSQLLOGIN = True
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,self.hf.getTime()+'Login mysql success!'))
-            #logging.info('Login mysql success!')
+            self.mysqlCount = 0
         except Exception,e:
             gl.MYSQLLOGIN = False
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_red,self.hf.getTime()+str(e)))
-            time.sleep(15)
+            self.mysqlCount = 1
 
 
     #登录oracle
     def loginOracle(self):
-        orcini = self.fqsIni.getOrcConf()
+        #orcini = self.fqsIni.getOrcConf()
         try:
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,self.hf.getTime()+'Start to login Oracle...'))
-            orcPool(orcini['host'],orcini['user'],orcini['passwd'],1521,orcini['sid'],orcini['mincached'],orcini['maxcached'],orcini['maxshared'],orcini['maxconnections'],orcini['maxusage'])
+            orcPool(self.orcini['host'],self.orcini['user'],self.orcini['passwd'],1521,self.orcini['sid'],self.orcini['mincached'],
+                    self.orcini['maxcached'],self.orcini['maxshared'],self.orcini['maxconnections'],self.orcini['maxusage'])
             gl.ORCLOGIN = True
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,self.hf.getTime()+'Login Oracle success!'))
-            #logging.info('Login mysql success!')
+            self.orcCount = 0
         except Exception,e:
             gl.ORCLOGIN = False
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_red,self.hf.getTime()+str(e)))
-            time.sleep(15)
-
+            self.orcCount = 1
 
             
 if __name__ == '__main__':
@@ -145,7 +182,6 @@ if __name__ == '__main__':
     import process
     
     while 1:
-        print '123'
         connection,address = sock.accept()  #收到一个请求
 
         #print ("client's IP:%s, PORT:%d" % address)

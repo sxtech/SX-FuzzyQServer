@@ -6,13 +6,16 @@ import MySQLdb
 import operator
 import itertools
 import gl
-from orcdb import Orc
-from mysqldb import Mysql
+import logging
+from orcdb import FOrc
+from mysqldb import FMysql
+
+logger = logging.getLogger('root')
 
 class FuzzyQSer:
     def __init__(self):
-        self.orc   = Orc()
-        self.mysql = Mysql()
+        self.orc   = FOrc()
+        self.mysql = FMysql()
 
         self.table = 'traffic'
 
@@ -274,8 +277,8 @@ def getFuzzyID(hphm,t1,t2,style=0):
         fqs = FuzzyQSer()
         return fqs.getFuzzyID(hphm,t1,t2,style=0)
     except Exception,e:
-        gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_red,str(e))
-        logging.error(str(e))
+        gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_red,str(e)))
+        logger.error(str(e))
     
     del fqs
 

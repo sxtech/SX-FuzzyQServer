@@ -4,8 +4,7 @@ import string, os, sys
 import datetime
 import time
 
-
-class fuzzyQServerIni:
+class fuzzyQSerIni:
     def __init__(self,confpath = 'fuzzyqserver.conf'):
         self.path = ''
         self.confpath = confpath
