@@ -75,14 +75,14 @@ class PhpPython:
                 if gl.MYSQLLOGIN and gl.ORCLOGIN:  
                     break
                 else:
-                    if gl.MYSQLLOGIN:    #mysqlµÇÂ¼¼ì²â
+                    if gl.ORCLOGIN:    #mysqlµÇÂ¼¼ì²â
                         pass
                     elif self.orcCount == 0 or self.orcCount >= 15:
                         self.loginOracle()
                     else:
                         self.orcCount += 1
 
-                    if gl.ORCLOGIN:      #oracleµÇÂ¼¼ì²â
+                    if gl.MYSQLLOGIN:      #oracleµÇÂ¼¼ì²â
                         pass
                     elif self.mysqlCount == 0 or self.mysqlCount >= 15:
                         self.loginMysql()
@@ -128,7 +128,6 @@ class PhpPython:
 
     #µÇÂ¼mysql
     def loginMysql(self):
-        #mysqlini = self.fqsIni.getMysqlConf()
         try:
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,self.hf.getTime()+'Start to login mysql...'))
             mysqlPool(self.mysqlini['host'],self.mysqlini['user'],self.mysqlini['passwd'],3306,self.mysqlini['mincached'],self.mysqlini['maxcached'],
@@ -144,7 +143,6 @@ class PhpPython:
 
     #µÇÂ¼oracle
     def loginOracle(self):
-        #orcini = self.fqsIni.getOrcConf()
         try:
             gl.TRIGGER.emit("<font %s>%s</font>"%(gl.style_green,self.hf.getTime()+'Start to login Oracle...'))
             orcPool(self.orcini['host'],self.orcini['user'],self.orcini['passwd'],1521,self.orcini['sid'],self.orcini['mincached'],

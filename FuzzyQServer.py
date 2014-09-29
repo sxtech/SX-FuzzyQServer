@@ -23,8 +23,7 @@ def initLogging(logFilename):
     
 #°æ±¾ºÅ
 def version():
-    return 'SX-FuzzyQServer V0.2.0'
-
+    return 'SX-FuzzyQServer V0.2.1'
  
 class MyThread(QtCore.QThread):
     trigger = QtCore.pyqtSignal(str)
@@ -145,10 +144,9 @@ class MainWindow(QtGui.QMainWindow):
             
     def socketClient(self):
         try:
-            import socket 
+            import socket,time
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
             sock.connect(('localhost',gl.LISTEN_PORT)) 
-            import time 
             sock.send('1')
             sock.close()
         except Exception,e:
